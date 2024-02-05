@@ -1,6 +1,6 @@
 import warnings
 from itertools import islice, tee
-from typing import Iterator, Any, Optional, List, Callable, Union
+from typing import Iterator, Any, Optional, List, Callable, Union, overload
 
 from mockfirestore.document import DocumentSnapshot
 from mockfirestore._helpers import T
@@ -52,17 +52,27 @@ class Query:
 
         return iter(doc_snapshots)
 
-    def get(self) -> Iterator[DocumentSnapshot]:
-        warnings.warn('Query.get is deprecated, please use Query.stream',
-                      category=DeprecationWarning)
-        return self.stream()
+    def get(self) -> List[DocumentSnapshot]:
+        return list(self.stream())
 
     def _add_field_filter(self, field: str, op: str, value: Any):
         compare = self._compare_func(op)
         self._field_filters.append((field, compare, value))
 
+    @overload
     def where(self, field: str, op: str, value: Any) -> 'Query':
-        self._add_field_filter(field, op, value)
+        ...
+
+    @overload
+    def where(self, *, filter: 'BaseFilter') -> 'Query':
+        ...
+
+    def where(self, *args, **kwargs) -> 'Query':
+        if len(args) == 3:
+            self._add_field_filter(args[0], args[1], args[2])
+        elif 'filter' in kwargs:
+            ff = kwargs['filter']
+            self._add_field_filter(ff.field_path, ff.op_string, ff.value)
         return self
 
     def order_by(self, key: str, direction: Optional[str] = 'ASCENDING') -> 'Query':

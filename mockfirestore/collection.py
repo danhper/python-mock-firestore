@@ -1,5 +1,5 @@
 import warnings
-from typing import Any, List, Optional, Iterable, Dict, Tuple, Sequence, Union
+from typing import Any, List, Optional, Iterable, Dict, Tuple, Sequence, Union, overload
 
 from mockfirestore import AlreadyExists
 from mockfirestore._helpers import generate_random_string, Store, get_by_path, set_by_path, Timestamp
@@ -41,9 +41,22 @@ class CollectionReference:
         timestamp = Timestamp.from_now()
         return timestamp, doc_ref
 
-    def where(self, field: str, op: str, value: Any) -> Query:
-        query = Query(self, field_filters=[(field, op, value)])
-        return query
+    @overload
+    def where(self, field: str, op: str, value: Any) -> 'Query':
+        ...
+
+    @overload
+    def where(self, *, filter: 'BaseFilter') -> 'Query':
+        ...
+
+    def where(self, *args, **kwargs) -> 'Query':
+        if len(args) == 3:
+            return Query(self, field_filters=[(args[0], args[1], args[2])])
+        elif 'filter' in kwargs:
+            ff = kwargs['filter']
+            return Query(self, field_filters=[(ff.field_path, ff.op_string, ff.value)])
+        else:
+            raise ValueError('Invalid arguments')
 
     def order_by(self, key: str, direction: Optional[str] = None) -> Query:
         query = Query(self, orders=[(key, direction)])
